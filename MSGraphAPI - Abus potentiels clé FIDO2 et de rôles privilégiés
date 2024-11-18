@@ -1,0 +1,23 @@
+//  Détecter les abus potentiels des clés FIDO2 en identifiant les utilisateurs qui ont demandé des options de création de méthodes FIDO2 et en vérifiant s'ils possèdent des rôles privilégiés susceptibles d'être abusés
+//
+// https://www.secura.com/services/information-technology/vapt/what-can-be-pentested/cloud-pentesting/abusing-fido2-passkeys
+// https://techcommunity.microsoft.com/blog/identity/public-preview-microsoft-entra-id-fido2-provisioning-apis/4062699
+// 
+// Définition des rôles abusés
+let AbusedRoleMonitor = dynamic(["Privileged Role Administrator", "Global Administrator"]);
+// Identification des utilisateurs ayant demandé des options de création de méthodes FIDO2 
+let FIDOAccountObjID =
+MicrosoftGraphActivityLogs
+| where RequestUri has "/authentication/fido2Methods/creationOptions"
+| where RequestMethod == "GET" and ResponseStatusCode == 200
+| parse RequestUri with "https://graph.microsoft.com/beta/users/" 
+UserObjectID "/authentication/fido2Methods/creationOptions"
+| distinct UserObjectID;
+// Filtrage des informations d'identité pour les utilisateurs identifiés
+IdentityInfo
+| where AccountObjectId has_any(FIDOAccountObjID)
+| summarize arg_max(TimeGenerated, *) by AccountObjectId
+| where AssignedRoles has_any(AbusedRoleMonitor)
+//
+// T1557 - Adversary-in-the-Middle (AiTM) : Les attaquants peuvent se positionner entre deux dispositifs réseau pour intercepter les communications et obtenir des informations d'identification
+// T1078 - Valid Accounts : Les attaquants peuvent utiliser des comptes valides pour élever leurs privilèges et accéder à des ressources sensibles
