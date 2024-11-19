@@ -1,0 +1,15 @@
+// AADUserRiskEvents - Une adresse IP associée à un acteur étatique est détectée dans les événements utilisateur
+//
+// Le type d'événement de risque "nationStateIP" correspond à une situation où une adresse IP associée à un acteur étatique est détectée dans les événements de risque utilisateur (AADUserRiskEvents). 
+// Cela signifie que l'adresse IP en question est liée à des activités malveillantes menées par des acteurs soutenus par un État, souvent dans le but de mener des cyberattaques sophistiquée
+// Lorsqu'un compte est détecté avec un comportement lié à une adresse IP d'acteur étatique ("nationStateIP"), il est crucial de suivre une série d'actions pour sécuriser le compte et l'infrastructure. Voici les étapes recommandées :
+// Isoler le compte : Bloquez immédiatement le compte suspect pour empêcher toute activité malveillante supplémentaire. Cela peut inclure la désactivation du compte ou la réinitialisation des mots de passe
+//
+AADUserRiskEvents
+| where RiskEventType == "nationStateIP"
+| project TimeGenerated, Activity, UserPrincipalName, UserDisplayName, IpAddress, Location, RiskDetail, RiskEventType, RiskLevel, Source, OperationName, Type
+//
+// MITRE ATT&CK Mapping
+// Based on the operations and objectives of the KQL code, the following MITRE ATT&CK techniques are relevant:
+// Technique ID: T1071.001 - Application Layer Protocol: Web Protocols: This technique involves adversaries using web protocols to communicate with systems under their control. Nation-state actors often use such methods to gain initial access to systems
+// Technique ID: T1078.004 - Valid Accounts: Cloud Accounts: This technique involves adversaries using valid cloud accounts to gain access. Nation-state actors may use compromised cloud accounts to infiltrate systems
