@@ -1,0 +1,15 @@
+// AWS Route 53 - Activité DNS suspecte détectée 
+//  Des requêtes DNS avec des réponses "NOERROR" ont été observées, dépassant le seuil de 500 requêtes en 20 minutes.  Cette activité pourrait indiquer une tentative de communication malveillante ou une tentative de déni de service (DoS) via le protocole DNS.
+// Actions Correctives : Analyser les logs DNS : Examiner les journaux DNS pour identifier des modèles de requêtes similaires et d'autres anomalies. Isoler les adresses IP suspectes : Bloquer l'accès réseau des adresses IP sources identifiées.
+//
+AWSRoute53ResolverExternal_CL
+| where TimeGenerated > ago(10d)
+| where DNSResponseCode_s == "NOERROR"
+| where DNSQuery_s !contains "aws" and DNSQuery_s !contains "azure" and DNSQuery_s !contains "dkim" and DNSQuery_s !contains "autodiscover." and DNSQuery_s !contains "localhost." 
+| where DNSQuery_s !startswith "thissubdomains"
+| summarize count() by NetworkSourceIP=ResolverIPAdress_s, DNSQuery_s, bin(TimeGenerated,20min)
+| where count_ > 500
+//
+//Tactiques et Techniques MITRE associées
+//Tactic: Impact
+//Technique: Network Denial of Service (T1498)
