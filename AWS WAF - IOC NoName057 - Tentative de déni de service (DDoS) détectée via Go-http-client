@@ -1,0 +1,24 @@
+// Détection des attaques DDoS menées par NoName057
+// NoName057(16) est un groupe de hackers prorusse connu pour ses attaques par déni de service distribué (DDoS). 
+// Le groupe NoName057 fournit aux cyberactivistes le client DDoS «DDoSia» pour mener ses attaques.
+// Le client DDoSia, qui fait l’objet de perfectionnements constants, est programmé en langage «Go» et fonctionne sur les plateformes Linux, Windows, MacOS et Android. Le client DDoSia utilise par défaut l’agent utilisateur (User-Agent) «Go-http-client/1.1» du langage de programmation «Go». 
+// NoName057 recommande dans ses canaux d’assistance pour Telegram d’utiliser VPN pour rendre l’identification des attaques plus difficile.
+//
+let IOC_DDoS = "IOC Attack DDoS Name057";
+let useragent = "Go-http-client/1.1";
+AWS_WAF_Logs
+| where TimeGenerated > ago(1h)
+| where action_s <> "BLOCK"
+| where * contains "Go-http-client/1.1"
+| mv-expand headers = todynamic(httpRequest_headers_s)
+| extend headername = headers.name, useragent = tostring(headers.value)
+| where headername contains "user-agent"
+| summarize count_UA_Go_httpclient=count() by bin(TimeGenerated, 10min), NetworkSourceIP=httpRequest_clientIp_s
+| where count_UA_Go_httpclient > 200
+| extend IOC_DDoS, useragent
+| project-reorder IOC_DDoS, TimeGenerated, useragent, NetworkSourceIP, NetworkSourceIP
+//
+//Tactiques et Techniques MITRE associées
+// Tactic: Impact
+// Technique: Network Denial of Service (T1498)
+// Technique: Endpoint Denial of Service (T1499)
