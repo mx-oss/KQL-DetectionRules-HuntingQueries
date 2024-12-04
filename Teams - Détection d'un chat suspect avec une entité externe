@@ -1,0 +1,48 @@
+// Teams - Détection d'un chat suspect avec une entité externe
+// Cette alerte aide à identifier des activités potentiellement malveillantes ou non autorisées impliquant des communications avec des domaines externes.
+// Cette alerte se déclenche lorsqu'un chat est créé dans Microsoft Teams avec des caractéristiques suspectes : message/chat provenant de tenant externe et ayant des noms d'affichage spécifiques tels que "Microsoft Security", "Help Desk", "Technical Support", etc.
+//
+CloudAppEvents
+| where Application == "Microsoft Teams"
+| where isnotempty(AccountId) and AccountId has "@"
+    // Filtrer les événements où un chat a été créé
+| where ActionType == "ChatCreated"
+| where RawEventData.ParticipantInfo.HasForeignTenantUsers == true
+    // Filtrer les événements où le nom d'affichage du premier membre est dans la liste des noms suspects
+| where RawEventData.Members[0].DisplayName in ("Microsoft Security", "Help Desk", "Help Desk Team", "Help Desk IT", "Microsoft Security", "office", "Technical Support", "Support", "IT")
+    // Extraire et convertir en minuscules l'UPN du destinataire
+| extend TargetUPN = tolower(tostring(RawEventData.Members[1].UPN))
+    // Extraire le nom d'affichage de l'expéditeur
+| extend Sender_DisplayName = tostring(parse_json(tostring(RawEventData.Members))[0].DisplayName)
+| extend Sender = tostring(parse_json(tostring(RawEventData.Members))[0].UPN)
+| extend Target_DisplayName = tostring(parse_json(tostring(RawEventData.Members))[1].DisplayName)
+    // Extraire les domaines participants
+| extend ParticipatingDomains_1 = tostring(parse_json(tostring(parse_json(tostring(RawEventData.ParticipantInfo)).ParticipatingDomains))[0])
+| extend ParticipatingDomains_2 = tostring(parse_json(tostring(parse_json(tostring(RawEventData.ParticipantInfo)).ParticipatingDomains))[1])
+    // Extraire l'information sur la présence d'utilisateurs de locataires étrangers
+| extend HasForeignTenantUsers_ = tostring(parse_json(tostring(RawEventData.ParticipantInfo)).HasForeignTenantUsers)
+| extend CommunicationType = tostring(RawEventData.CommunicationType)   
+| project-away
+        TenantId,
+        AccountType,
+        AdditionalFields,
+        ActivityType,
+        AppInstanceId,
+        ApplicationId,
+        Type,
+        IsAdminOperation,
+        IsImpersonated,
+        IsExternalUser
+| project-reorder
+        TimeGenerated,
+        Application,
+        CommunicationType,
+        ActionType,
+        TargetUPN,
+        Target_DisplayName,
+        Sender,
+        Sender_DisplayName,
+        ParticipatingDomains_1,
+        ParticipatingDomains_2,
+        HasForeignTenantUsers_
+//
