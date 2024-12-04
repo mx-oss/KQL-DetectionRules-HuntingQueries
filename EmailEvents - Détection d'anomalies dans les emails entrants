@@ -1,0 +1,31 @@
+// EmailEvents 
+// Potentiel Email Bombing - Détection d'anomalies dans les emails entrants
+// Cette alerte se déclenche lorsqu'un nombre anormalement élevé d'emails entrants est détecté pour un destinataire spécifique au cours des dernières 24 heures.  
+// L'alerte identifie les anomalies avec un score d'anomalie supérieur ou égal à 50 et un nombre d'emails supérieur à 500 par heure. 
+// Cette détection permet de surveiller et de réagir rapidement aux potentiels incidents de sécurité liés aux emails.
+//
+EmailEvents
+| where TimeGenerated > ago(1d)
+// Filtre les emails entrants
+| where EmailDirection == "Inbound"
+| where isnotempty(RecipientEmailAddress)
+// Exclut des domaines spécifiés
+| where SenderFromDomain !contains "vmware.com"
+    and SenderFromDomain !contains "microsoft.com"
+// Crée une série temporelle du nombre d'emails par heure pour chaque adresse email de destinataire
+| make-series Emailcount = count() on TimeGeneratedLocal step 1h by RecipientEmailAddress
+// Décompose la série temporelle pour identifier les anomalies
+| extend (Anomalies, AnomalyScore, ExpectedEmails) = series_decompose_anomalies(Emailcount)
+// Développe les séries temporelles en lignes individuelles
+| mv-expand
+    Emailcount,
+    Anomalies,
+    AnomalyScore,
+    ExpectedEmails to typeof(double),
+    TimeGeneratedLocal
+// Filtre les lignes où des anomalies ont été détectées
+| where Anomalies != 0
+// Filtre les anomalies avec un score d'anomalie supérieur ou égal à 50
+| where AnomalyScore >= 50 
+// Filtre les cas où le nombre d'emails est supérieur à 500 par heure
+| where Emailcount > 500
